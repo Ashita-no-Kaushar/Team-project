@@ -31,7 +31,8 @@ public class WebSecurityConfig {
 
     //better to define it like this
     private static final String[] publicRoutes = {
-            "/api/auth/login","/api/auth/signup","/api/auth/refresh","/api/encryption/**"
+            "/api/auth/login","/api/auth/signup","/api/auth/refresh","/api/encryption/**",
+            "/api/ml/**","/h2-console/**"
     };
 
     private static final Logger logger = Logger.getLogger(WebSecurityConfig.class.getName());
@@ -46,6 +47,7 @@ public class WebSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         logger.info("Creating / Inside Security Filter Chain Bean");
         http.csrf(csrf -> csrf.disable())
+                .headers(headers -> headers.frameOptions(frame -> frame.disable())) // Allow H2 console frames
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(publicRoutes).permitAll() // for public route allow all

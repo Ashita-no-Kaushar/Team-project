@@ -1,91 +1,28 @@
-# import pickle
-# import numpy as np
-# import sys
-# import json
-# from scipy.stats import entropy
-#
-# # Load the trained model
-# MODEL_PATH = "src/main/resources/models/model.pickle"
-#
-# try:
-#     with open(MODEL_PATH, "rb") as f:
-#         model = pickle.load(f)
-# except FileNotFoundError:
-#     print(json.dumps({"error": "Model file not found."}))
-#     exit()
-#
-# # Feature extraction function
-# def extract_features(data_hex):
-#     try:
-#         data_bytes = bytes.fromhex(data_hex)  # Convert hex string to bytes
-#         length = len(data_bytes)
-#
-#         if length == 0:
-#             return [0, 0, 0, 0, 0, 0, 0]
-#
-#         freq = [data_bytes.count(i) for i in range(256)]
-#         prob = [f / length if length > 0 else 1/256 for f in freq]
-#         ent = entropy(prob, base=2) if length > 0 else 0
-#
-#         data_int = np.array(list(data_bytes), dtype=np.uint8)
-#         mean = np.mean(data_int) if length > 0 else 0
-#         std = np.std(data_int) if length > 0 else 0
-#
-#         has_0x30 = 1 if 48 in data_bytes else 0  # 0x30 check
-#         length_mod_16 = length % 16
-#         length_mod_8 = length % 8
-#
-#         return [length, ent, mean, std, has_0x30, length_mod_16, length_mod_8]
-#
-#     except ValueError:
-#         return [0, 0, 0, 0, 0, 0, 0]
-#
-# # Function to predict algorithm
-# def predict_algorithm(input_hex):
-#     features = extract_features(input_hex)
-#     features_array = np.array(features).reshape(1, -1)
-#     prediction = model.predict(features_array)
-#     return prediction[0]
-#
-# # Read input from Spring Boot (command-line argument)
-# if __name__ == "__main__":
-#     try:
-#         input_data = sys.argv[1]  # Read input_hex from command-line
-#         result = predict_algorithm(input_data)
-#         print(json.dumps({"prediction": result}))
-#     except Exception as e:
-#         print(json.dumps({"error": str(e)}))
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Predict cryptographic algorithm from hex-encoded ciphertext.
+
+Called by Spring Boot via ProcessBuilder:
+    python3 predict.py <HEX_DATA>
+
+Prints the predicted algorithm name (e.g. "AES", "SHA256") to stdout.
+Uses the same feature extraction as train_model.py so features match.
+"""
+
 import sys
 import os
 import pickle
 import numpy as np
-from scipy.stats import entropy
 
-def extract_features(data_hex):
-    try:
-        data_bytes = bytes.fromhex(data_hex)
-        length = len(data_bytes)
+# Add script directory so sibling modules (FeatureExtraction) can be imported
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
 
-        if length == 0:
-            return [0, 0, 0, 0, 0, 0, 0]
+from FeatureExtraction import extract_features_from_hex
 
-        freq = [data_bytes.count(i) for i in range(256)]
-        prob = [f / length if length > 0 else 1/256 for f in freq]
-        ent = entropy(prob, base=2) if length > 0 else 0
-
-        data_int = np.array(list(data_bytes), dtype=np.uint8)
-        mean = np.mean(data_int) if length > 0 else 0
-        std = np.std(data_int) if length > 0 else 0
-
-        has_0x30 = 1 if 48 in data_bytes else 0
-        length_mod_16 = length % 16
-        length_mod_8 = length % 8
-
-        return [length, ent, mean, std, has_0x30, length_mod_16, length_mod_8]
-
-    except ValueError as e:
-        print(f"Error processing data: {data_hex} -> {e}")
-        return [0, 0, 0, 0, 0, 0, 0]
+MAX_STREAKS = 10
 
 try:
     # Ensure the argument is provided
@@ -93,25 +30,48 @@ try:
         print("Error: No HEX input provided.")
         sys.exit(1)
 
-    input_hex = sys.argv[1]  # Read input from command-line arguments
-#     MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pickle")
+    input_hex = sys.argv[1]
 
-
-    script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the script directory
-    model_path = os.path.join(script_dir, 'model.pickle')  # Set the full model path
-
+    # Load hybrid model (dict with rf_model, lr_model, encoder)
+    model_path = os.path.join(script_dir, 'model.pickle')
     with open(model_path, 'rb') as f:
-        model = pickle.load(f)
+        model_data = pickle.load(f)
 
+    # Load label map (maps numeric label → algorithm name)
+    label_map_path = os.path.join(script_dir, 'label_map.pickle')
+    label_map = None
+    if os.path.exists(label_map_path):
+        with open(label_map_path, 'rb') as f:
+            label_map = pickle.load(f)
 
-    # Load model
-#     with open('model.pickle', 'rb') as f:
-#         model = pickle.load(f)
-
-    features = extract_features(input_hex)
+    # Extract features (same pipeline as training)
+    features = extract_features_from_hex(input_hex, MAX_STREAKS)
     features_array = np.array(features).reshape(1, -1)
-    prediction = model.predict(features_array)
 
-    print(prediction[0])  # Print prediction (Spring Boot will read this)
+    # Hybrid prediction: RF → one-hot encode → combine → scale → LR
+    if isinstance(model_data, dict) and 'rf_model' in model_data:
+        rf_model = model_data['rf_model']
+        lr_model = model_data['lr_model']
+        encoder = model_data['encoder']
+        scaler = model_data.get('scaler')
+
+        rf_pred = rf_model.predict(features_array)
+        rf_encoded = encoder.transform(rf_pred.reshape(-1, 1))
+        combined = np.hstack((features_array, rf_encoded))
+        if scaler is not None:
+            combined = scaler.transform(combined)
+        prediction = lr_model.predict(combined)[0]
+    else:
+        # Fallback: plain model (backward compatible)
+        prediction = model_data.predict(features_array)[0]
+
+    # Map numeric label to algorithm name
+    if label_map and prediction in label_map:
+        result = label_map[prediction]
+    else:
+        result = str(prediction)
+
+    print(result)  # Spring Boot reads this from stdout
+
 except Exception as e:
     print(f"Error: {str(e)}")

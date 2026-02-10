@@ -1,0 +1,15 @@
+# Large ML model files (use Git LFS or train at build time)
+Backend/src/main/resources/scripts/model.pickle
+Backend/src/main/resources/scripts/label_map.pickle
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

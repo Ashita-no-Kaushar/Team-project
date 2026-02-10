@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BackgroundBeams } from './ui/background-beams';
-import { TypewriterEffect } from './ui/typewriter-effect';
+// import { TypewriterEffect } from './ui/typewriter-effect';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
@@ -260,6 +260,24 @@ const algorithmDetails = {
         weaknesses: ['Less hardware optimization'],
         keySizes: [],
         type: 'Hash Function'
+    },
+    'sha-512': {
+        name: 'SHA-512',
+        description: 'SHA-512 is part of the SHA-2 family, producing 512-bit digests. It offers higher security margins than SHA-256 and can be faster on 64-bit platforms.',
+        useCases: ['Digital signatures', 'Certificate validation', 'High-security hashing'],
+        strengths: ['Strong collision resistance', 'Faster on 64-bit CPUs', 'Higher security margin'],
+        weaknesses: ['Larger digest size', 'Slower on 32-bit platforms'],
+        keySizes: [],
+        type: 'Hash Function'
+    },
+    rc2: {
+        name: 'RC2 (Rivest Cipher 2)',
+        description: 'RC2 is a variable-key-size block cipher designed as a drop-in replacement for DES. It is now considered insecure.',
+        useCases: ['Legacy S/MIME email encryption', 'Older protocols'],
+        strengths: ['Variable key length', 'Small code footprint'],
+        weaknesses: ['Known vulnerabilities', 'Weak key schedule', 'Not recommended for new use'],
+        keySizes: [40, 64, 128],
+        type: 'Symmetric Block Cipher'
     }
 };
 
@@ -271,6 +289,7 @@ const normalizeKey = (raw: string): string => {
     // Model classes: ['3DES', 'AES-128', 'AES-192', 'AES-256', 'Blowfish', 'ChaCha20', 'DES', 'DSA',
     //  'Diffie-Hellman', 'ECDH', 'ECDSA', 'MD5', 'RC4', 'RSA', 'SHA-1', 'SHA-256', 'SHA-3-256']
     const mappings: { [key: string]: string } = {
+        // Original model output mappings
         '3des': '3des',
         'aes-128': 'aes',
         'aes-192': 'aes',
@@ -284,10 +303,17 @@ const normalizeKey = (raw: string): string => {
         'ecdsa': 'ecdsa',
         'md5': 'md5',
         'rc4': 'rc4',
+        'rc2': 'rc2',
         'rsa': 'rsa',
         'sha-1': 'sha-1',
         'sha-256': 'sha-256',
         'sha-3-256': 'sha3-256',
+        // New hybrid model output labels
+        'aes': 'aes',
+        'tripledes': '3des',
+        'sha1': 'sha-1',
+        'sha256': 'sha-256',
+        'sha512': 'sha-512',
     };
     
     // Check for exact match
@@ -370,13 +396,20 @@ const handlePredict = async () => {
             { headers }
         );
 
-        const algKey = resp.data.predicted_algorithm.toLowerCase(); // Convert to lowercase
         console.log('Prediction response:', resp.data);
+        
+        if (!resp.data?.predicted_algorithm) {
+            console.error('No predicted_algorithm in response:', resp.data);
+            toast.error(resp.data?.error || 'Prediction failed - no result returned');
+            return;
+        }
+        
+        const algKey = resp.data.predicted_algorithm.toLowerCase();
         const key = normalizeKey(algKey);
         // Check if the algorithm exists in our details object
-        if (!algKey || !algorithmDetails[key]) {
-            console.error('Unknown algorithm:', algKey);
-            toast.error('Unknown algorithm detected');
+        if (!(algorithmDetails as Record<string, any>)[key]) {
+            console.error('Unknown algorithm:', algKey, '→ normalized:', key);
+            toast.error(`Unknown algorithm detected: ${algKey}`);
             return;
         }
 
@@ -384,9 +417,10 @@ const handlePredict = async () => {
         setHistory(prev => [{ input: inputHex, result: algKey }, ...prev.slice(0, 5)]);
         setShowDetails(true);
         toast.success('Analysis complete!');
-    } catch (err) {
+    } catch (err: any) {
         console.error('Prediction error:', err);
-        toast.error('Prediction failed');
+        const msg = err?.response?.data?.error || err?.message || 'Prediction failed';
+        toast.error(msg);
     } finally {
         setLoading(false);
     }
@@ -538,7 +572,7 @@ return (
                             <div className="grid grid-cols-2 gap-2">
                                 {Object.keys(algorithmDetails).map(algo => (
                                     <div key={algo} className="p-2 text-sm bg-gray-900 rounded border border-gray-800 hover:border-purple-500">
-                                        {algorithmDetails[algo].name}
+                                        {(algorithmDetails as Record<string, any>)[algo].name}
                                     </div>
                                 ))}
                             </div>

@@ -18,6 +18,7 @@ export default defineConfig({
     watch: {
       usePolling: false
     },
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

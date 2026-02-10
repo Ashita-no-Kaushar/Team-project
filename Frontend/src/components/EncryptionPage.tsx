@@ -352,7 +352,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 
 // Map algorithm names to backend endpoint paths
-const endpointMap = {
+const endpointMap: Record<string, string> = {
   AES: 'aes',
   DES: 'des',
   '3DES': '3des',
@@ -395,7 +395,7 @@ const EncryptionPage = () => {
   const [inputText, setInputText] = useState('');
   const [encryptedText, setEncryptedText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState<{algorithm: string; input: string; result: string}[]>([]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -440,7 +440,7 @@ const EncryptionPage = () => {
     }
   };
 
-  const copyToClipboard = ({ text, message }) => {
+  const copyToClipboard = ({ text, message }: { text: string; message: string }) => {
     navigator.clipboard.writeText(text);
     toast.success(message);
   };

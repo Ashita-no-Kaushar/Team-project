@@ -71,7 +71,12 @@ public class MLController {
         if (result.isPresent()) {
             log.info("result is present.");
             log.info("Sending to user service from ml controller.");
-            userService.savePrediction(input.get("input_hex"),result.get());
+            try {
+                userService.savePrediction(input.get("input_hex"), result.get());
+            } catch (Exception e) {
+                log.warning("Could not save prediction to user history: " + e.getMessage());
+                // Don't fail the prediction just because saving failed
+            }
             return ResponseEntity.ok(Map.of("predicted_algorithm", result.get()));
         } else {
             log.info("result is not present");

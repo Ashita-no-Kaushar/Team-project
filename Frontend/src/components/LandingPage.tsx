@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, ShieldCheck, Zap, Lock, Terminal, Database, Layout } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Lock, Terminal, Database } from 'lucide-react';
 // import { BackgroundBeams } from './ui/background-beams';
 
 const BackgroundGrid = () => (

@@ -50,7 +50,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {//Accounting for bearer token.
             logger.info("Authorization header is not null and also starts with Bearer ");
             token = authHeader.substring(7);
-            username = jwtService.extractUsername(token);
+            try {
+                username = jwtService.extractUsername(token);
+            } catch (Exception e) {
+                logger.warn("Failed to extract username from token: {}", e.getMessage());
+                // Let the request proceed without authentication — public routes will still work
+            }
         }
 //        else{ //in case no header is found. dont do this .
 //            throw new BearerTokenNotFoundException("Bearer token or Authentication token not found.");
@@ -59,21 +64,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         logger.info("Username in doFilterInternal : {}", username);
         if (username != null && (SecurityContextHolder.getContext().getAuthentication() == null
                 || !SecurityContextHolder.getContext().getAuthentication().isAuthenticated())) {
-            logger.info("User is authenticated.");
-            UserDetails userDetails  = userDetailsService.loadUserByUsername(username);
+            try {
+                logger.info("Looking up user: {}", username);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            if (jwtService.validateToken(token, username)) {// Pass userDetails instead of username
-               logger.info("Inside the jwt validation of doInternalFilter");
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()); //getAuthorities is null
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-                logger.info("User authenticated: {}", username);
+                if (jwtService.validateToken(token, username)) {
+                    logger.info("Inside the jwt validation of doInternalFilter");
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    logger.info("User authenticated: {}", username);
+                }
+            } catch (Exception e) {
+                logger.warn("Could not authenticate user '{}': {}", username, e.getMessage());
+                // Let the request proceed without authentication — public routes will still work
             }
-//            else { dont do this
-//                logger.warn("Invalid token for user: {}", username);
-//                throw new InvalidJwtAccessToken("Access token is not valid login again.");
-//            }
         }
         logger.info("Returning request received.");
         filterChain.doFilter(request, response);
