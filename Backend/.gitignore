@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Python runtime artifacts
+.venv/
+src/main/resources/scripts/__pycache__/
