@@ -1,15 +1,24 @@
-import SignupFormDemo from './components/SignUp'
-import Login from './components/Login'
-import HistoryPage from './components/History';
-import LandingPage from './components/LandingPage';
-import ProfilePage from './components/ProfilePage';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import DocumentationPage from './components/DocumentationPage';
-import PredictionPage from './components/PredictionPage';
-import EncryptionPage from './components/EncryptionPage';
 import { Toaster } from 'react-hot-toast';
-import PrivateRoute from './components/PrivateRoute';
-import Layout from './components/Layout';
+const SignupFormDemo = lazy(() => import('./components/SignUp'));
+const Login = lazy(() => import('./components/Login'));
+const HistoryPage = lazy(() => import('./components/History'));
+const LandingPage = lazy(() => import('./components/LandingPage'));
+const ProfilePage = lazy(() => import('./components/ProfilePage'));
+const DocumentationPage = lazy(() => import('./components/DocumentationPage'));
+const PredictionPage = lazy(() => import('./components/PredictionPage'));
+const EncryptionPage = lazy(() => import('./components/EncryptionPage'));
+const PrivateRoute = lazy(() => import('./components/PrivateRoute'));
+const Layout = lazy(() => import('./components/Layout'));
+
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+      Loading page...
+    </div>
+  );
+}
 
 
 function App() {
@@ -19,70 +28,68 @@ function App() {
     <Router>
       <Toaster position="top-right" reverseOrder={false} />
 
-      <Routes>
-        <Route path="/signup" element={<SignupFormDemo />} />
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/"
-          element={
-           
-           <Layout>
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <Routes>
+          <Route path="/signup" element={<SignupFormDemo />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <Layout>
                 <LandingPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <HistoryPage />
                 </Layout>
-           
-          }
-        />
-        <Route
-          path="/history"
-          element={
-            <PrivateRoute>
-              <Layout> 
-                <HistoryPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ProfilePage />
                 </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <PrivateRoute>
-           <Layout> 
-                <ProfilePage />
-                </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/docs"
-          element={
-            
-               <Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/docs"
+            element={
+              <Layout>
                 <DocumentationPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/prediction"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <PredictionPage />
                 </Layout>
-          
-          }
-        />
-        <Route
-          path="/prediction"
-          element={
-            <PrivateRoute>
-               <Layout>
-                <PredictionPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/encry"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <EncryptionPage />
                 </Layout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/encry"
-          element={
-            <PrivateRoute>
-               <Layout>
-                <EncryptionPage />
-                </Layout>
-            </PrivateRoute>
-          }
-        />
-      </Routes>
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }
