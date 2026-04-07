@@ -1,6 +1,6 @@
 # **AI/ML- Based Cryptographic Algorithm Identification**
 
-Welcome to the repository for the **AI/ML-Based Cryptographic Algorithm Identification** project! This project was developed as part of **DU Hacks 4.0 in 2025 held at DDU Nadiad**, with the goal of creating an intelligent system capable of identifying cryptographic algorithms from modern cryptographic datasets. By leveraging AI and ML techniques, the system analyzes data patterns and features to determine the cryptographic algorithm used, automating the process and enhancing the understanding of algorithm weaknesses to improve security.
+Welcome to the repository for the **AI/ML-Based Cryptographic Algorithm Identification** project. This repository is maintained primarily for learning and applying practical knowledge across cryptography, machine learning, and full-stack development. The system analyzes encrypted/hash-like data patterns to estimate which cryptographic algorithm may have produced them, while also exposing educational tooling for encryption samples, prediction metadata, and benchmark diagnostics.
 
 
 # **Real-World Problem Statement: AI/ML-Based Cryptographic Algorithm Identification**
@@ -50,180 +50,135 @@ You can view the project presentation, some key points are discussed in this ppt
 
 [View Presentation](https://docs.google.com/presentation/d/1HG2yGzrDRv5D98kzMdwgv0mOmoPEIMLZ/edit?usp=sharing&ouid=113623327821126759756&rtpof=true&sd=true)
 
-## 🚀 Tech Stack  
+## 🚀 Tech Stack
 
-Our project leverages a modern and scalable technology stack for both frontend and backend development, ensuring high performance, security, and maintainability.  
+Our project uses a practical full-stack architecture that combines frontend UI, backend APIs, and ML inference.
 
-### **🖥 Frontend**  
-- React with Vite for a fast and efficient development experience  
-- Tailwind CSS and PostCSS for a responsive and modern UI  
-- Aceternity UI and ShadCN for prebuilt UI components  
-- Axios for API communication  
-- Lucid React for enhanced UI elements  
+### 🖥 Frontend
+- React 19 + Vite 6 + TypeScript
+- Tailwind CSS 4, Framer Motion, and Lucide React
+- Redux Toolkit for auth state management
+- Axios for API integration
 
-### **🧠 Machine Learning**  
-- Python-based Random Forest model for predictions  
-- Required libraries for model training, evaluation, and inference  
-- A dedicated predictor file for handling predictions  
+### 🧠 Machine Learning
+- Python-based prediction pipeline under `Backend/src/main/resources/scripts`
+- Hybrid model artifacts (`model.pickle`, `label_map.pickle`)
+- Core libs: `numpy`, `scipy`, `scikit-learn`, `pycryptodome`
 
-### **🔐 Backend**  
-- Spring Boot for a robust and scalable backend  
-- JWT for secure authentication and authorization  
-- Cryptographic libraries for data protection  
-- Spring Security for enforcing security best practices  
-- Additional dependencies to ensure a production-ready API
+### 🔐 Backend
+- Spring Boot 3.4 (Java 21)
+- Spring Security + JWT-based auth
+- Spring Data JPA
+- H2 default for local dev, MySQL-ready configuration for production
 
 # Prerequisites
-Ensure you have the following installed on your system:
-- Java JDK 17+
-- Spring Boot (Integrated in your project)
-- Maven
-- PostgreSQL (or your preferred database)
-- Node.js & npm (for frontend, if applicable)
+
+Install these before running locally:
+- Java 21
+- Maven (or use `./mvnw` wrapper)
+- Node.js 20+ and npm
+- Python 3.10+
+- Git
 
 ------------------------------------------------------------
 ## Step 1: Clone the Repository
-```
-git clone https://github.com/razasoneji/CryptML.git
-cd CryptML
+```bash
+git clone https://github.com/Ashita-no-Kaushar/Team-project.git
+cd Team-project
 ```
 
 ------------------------------------------------------------
 ## Step 2: Setup Backend (Spring Boot)
-### Navigate to the backend directory
-```
-cd backend
+
+### Navigate to backend
+```bash
+cd Backend
 ```
 
-## Configure Database (PostgreSQL/MySQL)
-### Open application.properties or application.yml in the src/main/resources folder.
-### Set up your database credentials:
-```
-spring.datasource.url=jdbc:postgresql://localhost:5432/cryptml_db
-spring.datasource.username=your_db_user
-spring.datasource.password=your_db_password
-spring.jpa.hibernate.ddl-auto=update
+### Setup Python environment for ML scripts
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r src/main/resources/scripts/requirements.txt
 ```
 
-## Build and Run the Backend
+### Database configuration
+- Default local setup uses in-memory H2 from `application.properties`.
+- For production, switch to MySQL/PostgreSQL settings in `application.properties` or environment variables.
+
+### Run backend (Java 21)
+```bash
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 PATH=/usr/lib/jvm/java-21-openjdk-amd64/bin:$PATH ./mvnw spring-boot:run
 ```
-mvn clean install
-mvn spring-boot:run
-```
+
 ------------------------------------------------------------
 ## Step 3: Setup Frontend
-### Navigate to the frontend directory
-```
-cd ../frontend
+
+### Navigate to frontend
+```bash
+cd ../Frontend
 ```
 
-### Install Dependencies
-```
-npm install
+### Install dependencies
+```bash
+npm ci
 ```
 
-### Run the Frontend
+### Run frontend
+```bash
+npm run dev -- --host 0.0.0.0 --port 5173
 ```
-npm run dev
-```
+
 ------------------------------------------------------------
-## Step 4: Testing the Setup
-### Backend: Open in browser or Postman
-```
-http://localhost:8080/api/health
+## Step 4: Verify Local Setup
+
+### Frontend
+```text
+http://localhost:5173
 ```
 
-## Frontend: Open in browser
+### Backend quick checks
+```bash
+curl http://localhost:8080/api/encryption/aes
+curl -X POST http://localhost:8080/api/ml/predict -H "Content-Type: application/json" -d '{"input_hex":"00112233445566778899aabbccddeeff"}'
 ```
-http://localhost:3000
-```
+
+### Auth note
+- `POST /api/ml/predict` is public.
+- `/api/ml/model-info`, `/api/ml/benchmark`, and `/api/ml/benchmark/history` require JWT authentication.
+
 ------------------------------------------------------------
+## Installation and setup complete
 
-## Installation and setup complete! 🚀
-
-
-This tech stack enables a seamless integration between frontend, backend, and machine learning components, ensuring a smooth user experience. 🚀  
 ```plaintext
-Backend/
-├── pom.xml
-├── mvnw
-├── mvnw.cmd
-├── src/
-│   ├── main/
-│   │   ├── java/com/project/backend/
-│   │   │   ├── BackendApplication.java
-│   │   │   ├── Configurations/
-│   │   │   │   ├── AppConfig.java
-│   │   │   │   ├── WebSecurityConfig.java
-│   │   │   ├── Controllers/
-│   │   │   │   ├── AlgorithmController.java
-│   │   │   │   ├── AuthController.java
-│   │   │   │   ├── CryptographicDataController.java
-│   │   │   │   ├── EncryptionController.java
-│   │   │   │   ├── MLController.java
-│   │   │   │   ├── UserController.java
-│   │   │   ├── Entities/
-│   │   │   │   ├── Algorithm.java
-│   │   │   │   ├── AuthResponse.java
-│   │   │   │   ├── CryptographicAlgorithm.java
-│   │   │   │   ├── CryptographicData.java
-│   │   │   │   ├── LoginRequest.java
-│   │   │   │   ├── RefreshTokenRequest.java
-│   │   │   │   ├── SignupRequest.java
-│   │   │   │   ├── User.java
-│   │   │   ├── ExceptionHandler/
-│   │   │   │   ├── GlobalExceptionHandler.java
-│   │   │   ├── Exceptions/
-│   │   │   │   ├── BearerTokenNotFoundException.java
-│   │   │   │   ├── InvalidJwtAccessToken.java
-│   │   │   │   ├── InvalidJwtRefreshToken.java
-│   │   │   ├── Filters/
-│   │   │   │   ├── JwtAuthFilter.java
-│   │   │   ├── Repositories/
-│   │   │   │   ├── AlgorithmRepository.java
-│   │   │   │   ├── CryptographicDataRepository.java
-│   │   │   │   ├── UserRepository.java
-│   │   │   ├── Services/
-│   │   │   │   ├── AlgorithmService.java
-│   │   │   │   ├── CryptographicDataService.java
-│   │   │   │   ├── EncryptionService.java
-│   │   │   │   ├── JwtService.java
-│   │   │   │   ├── LoginService.java
-│   │   │   │   ├── MLService.java
-│   │   │   │   ├── RefreshService.java
-│   │   │   │   ├── SignupService.java
-│   │   │   │   ├── UserDetailsServiceImpl.java
-│   │   │   │   ├── UserService.java
-│   │   ├── resources/
-│   │   │   ├── application.properties
-│   │   │   ├── data.sql
-│   │   │   ├── scripts/
-│   │   │   │   ├── model.pickle
-│   │   │   │   ├── predict.py
-│   ├── test/
-│   │   ├── java/com/project/backend/
-│   │   │   ├── BackendApplicationTests.java
-_______________________________________________________________________________
-Frontend/
-├── src/
-│   ├── components/        # Reusable UI components
-│   ├── lib/               # Utility functions or external libraries
-│   ├── ui/                # UI pages and layout components
-│   │   ├── Dashboard.tsx              # Dashboard page
-│   │   ├── DocumentationPage.tsx       # Documentation page
-│   │   ├── History.tsx                 # History page
-│   │   ├── HistoryListItem.tsx         # History list item component
-│   │   ├── LandingPage.tsx             # Landing page
-│   │   ├── Layout.tsx                  # Main layout wrapper
-│   │   ├── Login.tsx                   # Login page
-│   │   ├── ProfilePage.tsx             # User profile page
-│   │   ├── SignUp.tsx                  # Sign-up page
-│   ├── App.css            # Global styles for the App component
-│   ├── App.tsx            # Main application component
-│   ├── index.css          # Global styles
-│   ├── main.tsx           # Entry point of the React app
-│   ├── types.ts           # TypeScript type definitions
-│   ├── vite-env.d.ts      # Vite environment types
+Team-project/
+├── Backend/
+│   ├── pom.xml
+│   ├── mvnw
+│   ├── src/main/java/com/project/backend/
+│   │   ├── Controllers/
+│   │   │   ├── AuthController.java
+│   │   │   ├── EncryptionController.java
+│   │   │   ├── MLController.java
+│   │   ├── Services/
+│   │   │   ├── MLService.java
+│   │   │   ├── GeneratedSampleRegistryService.java
+│   │   │   ├── BenchmarkHistoryService.java
+│   │   ├── Entities/
+│   │   │   ├── PredictionResult.java
+│   ├── src/main/resources/
+│   │   ├── application.properties
+│   │   ├── scripts/
+│   │   │   ├── predict.py
+│   │   │   ├── train_model.py
+│   │   │   ├── requirements.txt
+├── Frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── PredictionPage.tsx
+│   │   │   ├── SignUp.tsx
 ```
 # RestEndpoints & their description 
 
@@ -261,9 +216,9 @@ and updating the `correctedData` status of a specific entry.
 
 ## Description
 The `EncryptionController` provides REST endpoints for encrypting data using various cryptographic algorithms.  
-It supports symmetric encryption (AES, DES, Triple DES, Blowfish, RC4, ChaCha20),  
+It supports symmetric encryption (AES, DES, Triple DES, Blowfish, RC2, RC4, ChaCha20),  
 asymmetric encryption (RSA), digital signatures (DSA, ECDSA), key exchanges (Diffie-Hellman, ECDH),  
-and hashing algorithms (MD5, SHA-1, SHA-256, SHA-3-256).
+and hashing algorithms (MD5, SHA-1, SHA-256, SHA-512, SHA-3-256).
 
 ## REST Endpoints
 
@@ -288,63 +243,73 @@ and hashing algorithms (MD5, SHA-1, SHA-256, SHA-3-256).
    - **Method:** `GET`
    - **Description:** Encrypts data using Blowfish encryption.
 
-5. **RC4 Encryption**
+5. **RC2 Encryption**
+   - **Endpoint:** `/api/encryption/rc2`
+   - **Method:** `GET`
+   - **Description:** Encrypts data using RC2 encryption.
+
+6. **RC4 Encryption**
    - **Endpoint:** `/api/encryption/rc4`
    - **Method:** `GET`
    - **Description:** Encrypts data using RC4 encryption.
    - **Query Parameter:**  
      - `plaintext` (Optional) → The text to encrypt.
 
-6. **ChaCha20 Encryption**
+7. **ChaCha20 Encryption**
    - **Endpoint:** `/api/encryption/chacha20`
    - **Method:** `GET`
    - **Description:** Encrypts data using ChaCha20 encryption.
 
 ### Asymmetric Encryption
-7. **RSA Encryption**
+8. **RSA Encryption**
    - **Endpoint:** `/api/encryption/rsa`
    - **Method:** `GET`
    - **Description:** Encrypts data using RSA encryption.
 
 ### Digital Signatures
-8. **DSA Signature Generation**
+9. **DSA Signature Generation**
    - **Endpoint:** `/api/encryption/dsa`
    - **Method:** `GET`
    - **Description:** Generates a digital signature using DSA.
 
-9. **ECDSA Signature Generation**
+10. **ECDSA Signature Generation**
    - **Endpoint:** `/api/encryption/ecdsa`
    - **Method:** `GET`
    - **Description:** Generates a digital signature using ECDSA.
 
 ### Key Exchange
-10. **Diffie-Hellman Key Exchange**
+11. **Diffie-Hellman Key Exchange**
     - **Endpoint:** `/api/encryption/diffe`
     - **Method:** `GET`
     - **Description:** Performs a key exchange using Diffie-Hellman.
 
-11. **ECDH Key Exchange**
+12. **ECDH Key Exchange**
     - **Endpoint:** `/api/encryption/ecdh`
     - **Method:** `GET`
     - **Description:** Performs a key exchange using ECDH.
 
 ### Hashing Algorithms
-12. **MD5 Hash Generation**
+13. **MD5 Hash Generation**
     - **Endpoint:** `/api/encryption/md5`
     - **Method:** `GET`
     - **Description:** Generates an MD5 hash.
 
-13. **SHA-1 Hash Generation**
+14. **SHA-1 Hash Generation**
     - **Endpoint:** `/api/encryption/sha1`
     - **Method:** `GET`
     - **Description:** Generates a SHA-1 hash.
 
-14. **SHA-256 Hash Generation**
+15. **SHA-256 Hash Generation**
     - **Endpoint:** `/api/encryption/sha256`
     - **Method:** `GET`
     - **Description:** Generates a SHA-256 hash.
 
-15. **SHA-3-256 Hash Generation**
+16. **SHA-512 Hash Generation**
+   - **Endpoint:** `/api/encryption/sha512`
+   - **Method:** `GET`
+   - **Description:** Generates a SHA-512 hash.
+
+17. **SHA-3-256 Hash Generation**
     - **Endpoint:** `/api/encryption/sha3-256`
     - **Method:** `GET`
     - **Description:** Generates a SHA-3-256 hash.
