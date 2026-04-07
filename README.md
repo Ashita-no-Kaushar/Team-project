@@ -363,6 +363,40 @@ It processes input hexadecimal strings and determines the corresponding algorith
 - **Method:** `POST`  
 - **Description:** Predicts the cryptographic algorithm used for encryption based on the provided hexadecimal string.
 
+### Model Info (Protected)
+- **Endpoint:** `/api/ml/model-info`
+- **Method:** `GET`
+- **Description:** Returns ML runtime metadata (model version, confidence threshold, artifact availability, timeout settings).
+- **Auth:** `Authorization: Bearer <token>` required.
+
+### Quick Benchmark (Protected)
+- **Endpoint:** `/api/ml/benchmark`
+- **Method:** `GET`
+- **Query Parameter:** `mode` (optional) = `hash-only` | `mixed` | `strict` (default: `mixed`)
+- **Description:** Runs benchmark cases and returns summary metrics.
+- **Auth:** `Authorization: Bearer <token>` required.
+
+### Benchmark History (Protected)
+- **Endpoint:** `/api/ml/benchmark/history`
+- **Method:** `GET`
+- **Query Parameters:**
+   - `mode` (optional): filter by `hash-only`, `mixed`, `strict`
+   - `limit` (optional): number of records to return
+- **Description:** Returns recent benchmark runs for trend analysis.
+- **Auth:** `Authorization: Bearer <token>` required.
+
+### Benchmark Response Fields (Summary)
+- `mode`: benchmark mode used for the run.
+- `run_at`: timestamp when benchmark executed.
+- `total_cases`, `passed_cases`, `pass_rate`: benchmark accuracy summary.
+- `duration_ms`: runtime for the benchmark.
+- `avg_confidence`: average model confidence across benchmark cases (when available).
+- `results`: per-case details including expected algorithm, predicted algorithm, source, confidence, and match status.
+
+### Access Control Note
+- `POST /api/ml/predict` remains public for prediction requests.
+- `/api/ml/model-info`, `/api/ml/benchmark`, and `/api/ml/benchmark/history` require JWT authentication.
+
 
 # Authentication Controller
 

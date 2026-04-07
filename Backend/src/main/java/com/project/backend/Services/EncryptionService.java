@@ -147,6 +147,32 @@ public class EncryptionService {
     }
 
 
+    // RC2 Encryption (CBC Mode, 128-bit Key)
+    public String rc2Encrypt() throws Exception {
+        KeyGenerator keyGen = KeyGenerator.getInstance("RC2");
+        keyGen.init(128);
+        SecretKey secretKey = keyGen.generateKey();
+
+        byte[] iv = new byte[8];
+        SecureRandom random = new SecureRandom();
+        random.nextBytes(iv);
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+
+        byte[] plaintext = generateRandomPlaintext();
+
+        Cipher cipher = Cipher.getInstance("RC2/CBC/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
+
+        byte[] ciphertext = cipher.doFinal(plaintext);
+
+        byte[] encryptedData = new byte[iv.length + ciphertext.length];
+        System.arraycopy(iv, 0, encryptedData, 0, iv.length);
+        System.arraycopy(ciphertext, 0, encryptedData, iv.length, ciphertext.length);
+
+        return bytesToHex(encryptedData);
+    }
+
+
     public String rc4Encrypt(String userInput) throws Exception {
         // Generate a 128-bit (16-byte) key
         byte[] key = new byte[16];
@@ -353,6 +379,20 @@ public class EncryptionService {
         // Compute SHA-256 hash
         MessageDigest sha256Digest = MessageDigest.getInstance("SHA-256");
         byte[] hashBytes = sha256Digest.digest(data);
+
+        // Convert hash to hexadecimal format
+        return bytesToHex(hashBytes);
+    }
+
+
+    public String generateSHA512Hash() throws NoSuchAlgorithmException {
+        // Generate 64 bytes of random data
+        byte[] data = new byte[64];
+        SecureRandom.getInstanceStrong().nextBytes(data);
+
+        // Compute SHA-512 hash
+        MessageDigest sha512Digest = MessageDigest.getInstance("SHA-512");
+        byte[] hashBytes = sha512Digest.digest(data);
 
         // Convert hash to hexadecimal format
         return bytesToHex(hashBytes);

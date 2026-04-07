@@ -7,6 +7,7 @@ import com.project.backend.Entities.SignupRequest;
 import com.project.backend.Services.LoginService;
 import com.project.backend.Services.RefreshService;
 import com.project.backend.Services.SignupService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,7 +36,7 @@ public class AuthController {
 
 
     @PostMapping("/signup")
-    public ResponseEntity<String> signup(@RequestBody SignupRequest signupRequest) {
+    public ResponseEntity<String> signup(@Valid @RequestBody SignupRequest signupRequest) {
         log.info("Received SignupRequest in the signup controller. ");
 
         return ResponseEntity.ok(signupService.signup(signupRequest));

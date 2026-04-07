@@ -4,8 +4,8 @@
 Data Generator — generates synthetic encrypted / hashed data corpus.
 
 Supports the following algorithms:
-  Ciphers : AES-128, DES, Triple-DES, RC4, RC2, Blowfish, ChaCha20
-  Hashes  : MD5, SHA-1, SHA-256, SHA-512
+    Ciphers : AES, DES, Triple-DES, RC4, RC2, Blowfish, ChaCha20, RSA
+    Hashes  : MD5, SHA-1, SHA-256, SHA-3-256, SHA-512
 
 Each sample is a ciphertext (or hash digest) produced from a random plaintext.
 Only the *ciphertext* features are kept, because at prediction time the user
@@ -18,8 +18,10 @@ import numpy as np
 import hashlib
 from random import choice
 
-from Crypto.Cipher import AES, DES, ARC4, ARC2, DES3, Blowfish, ChaCha20
+from Crypto.Cipher import AES, DES, ARC4, ARC2, DES3, Blowfish, ChaCha20, PKCS1_OAEP
 from Crypto.Random import get_random_bytes
+from Crypto.PublicKey import RSA
+from Crypto.Hash import SHA256 as SHA256_HASH
 
 # Add script directory so sibling modules can be imported
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,10 +40,12 @@ ALGORITHM_LABELS = {
     'TripleDES': 4,
     'Blowfish':  5,
     'ChaCha20':  6,
-    'MD5':       7,
-    'SHA1':      8,
-    'SHA256':    9,
-    'SHA512':   10,
+    'RSA':       7,
+    'MD5':       8,
+    'SHA1':      9,
+    'SHA256':   10,
+    'SHA3-256': 11,
+    'SHA512':   12,
 }
 
 LABEL_NAMES = {v: k for k, v in ALGORITHM_LABELS.items()}
@@ -58,14 +62,18 @@ def _pad(data, block_size):
 
 def encrypt_aes(plaintext):
     key = get_random_bytes(16)
-    cipher = AES.new(key, AES.MODE_ECB)
-    return cipher.encrypt(_pad(plaintext, 16))
+    iv = get_random_bytes(16)
+    cipher = AES.new(key, AES.MODE_CBC, iv=iv)
+    ciphertext = cipher.encrypt(_pad(plaintext, 16))
+    return iv + ciphertext
 
 
 def encrypt_des(plaintext):
     key = get_random_bytes(8)
-    cipher = DES.new(key, DES.MODE_ECB)
-    return cipher.encrypt(_pad(plaintext, 8))
+    iv = get_random_bytes(8)
+    cipher = DES.new(key, DES.MODE_CBC, iv=iv)
+    ciphertext = cipher.encrypt(_pad(plaintext, 8))
+    return iv + ciphertext
 
 
 def encrypt_rc4(plaintext):
@@ -76,26 +84,45 @@ def encrypt_rc4(plaintext):
 
 def encrypt_rc2(plaintext):
     key = get_random_bytes(16)
-    cipher = ARC2.new(key, ARC2.MODE_ECB)
-    return cipher.encrypt(_pad(plaintext, 8))
+    iv = get_random_bytes(8)
+    cipher = ARC2.new(key, ARC2.MODE_CBC, iv=iv)
+    ciphertext = cipher.encrypt(_pad(plaintext, 8))
+    return iv + ciphertext
 
 
 def encrypt_tripledes(plaintext):
-    key = DES3.adjust_key_parity(get_random_bytes(24))
-    cipher = DES3.new(key, DES3.MODE_ECB)
-    return cipher.encrypt(_pad(plaintext, 8))
+    while True:
+        try:
+            key = DES3.adjust_key_parity(get_random_bytes(24))
+            break
+        except ValueError:
+            continue
+
+    iv = get_random_bytes(8)
+    cipher = DES3.new(key, DES3.MODE_CBC, iv=iv)
+    ciphertext = cipher.encrypt(_pad(plaintext, 8))
+    return iv + ciphertext
 
 
 def encrypt_blowfish(plaintext):
     key = get_random_bytes(16)
-    cipher = Blowfish.new(key, Blowfish.MODE_ECB)
-    return cipher.encrypt(_pad(plaintext, 8))
+    iv = get_random_bytes(8)
+    cipher = Blowfish.new(key, Blowfish.MODE_CBC, iv=iv)
+    ciphertext = cipher.encrypt(_pad(plaintext, 8))
+    return iv + ciphertext
 
 
 def encrypt_chacha20(plaintext):
     key = get_random_bytes(32)
     cipher = ChaCha20.new(key=key)
-    return cipher.nonce + cipher.encrypt(plaintext)
+    return cipher.encrypt(plaintext)
+
+
+def encrypt_rsa(_plaintext):
+    key = RSA.generate(2048)
+    cipher = PKCS1_OAEP.new(key.publickey(), hashAlgo=SHA256_HASH)
+    plaintext = get_random_bytes(150)
+    return cipher.encrypt(plaintext)
 
 
 CIPHER_FUNCTIONS = {
@@ -106,13 +133,15 @@ CIPHER_FUNCTIONS = {
     'TripleDES': encrypt_tripledes,
     'Blowfish':  encrypt_blowfish,
     'ChaCha20':  encrypt_chacha20,
+    'RSA':       encrypt_rsa,
 }
 
 HASH_ALGORITHMS = {
-    'MD5':    'md5',
-    'SHA1':   'sha1',
-    'SHA256': 'sha256',
-    'SHA512': 'sha512',
+    'MD5':      'md5',
+    'SHA1':     'sha1',
+    'SHA256':   'sha256',
+    'SHA3-256': 'sha3_256',
+    'SHA512':   'sha512',
 }
 
 # ── Sample generation ────────────────────────────────────────────────────────

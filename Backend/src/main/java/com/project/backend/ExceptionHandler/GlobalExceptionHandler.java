@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -36,6 +37,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleInvalidJwtRefreshToken(InvalidJwtRefreshToken exception) {
         logger.info("handleInvalidJwtRefreshToken triggered");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("An error occurred: " + exception.getMessage());
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<String> handleResponseStatusException(ResponseStatusException ex) {
+        logger.info("handleResponseStatusException triggered");
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(ex.getReason() != null ? ex.getReason() : "Request failed.");
     }
 
 

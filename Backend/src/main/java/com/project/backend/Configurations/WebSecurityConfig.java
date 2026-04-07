@@ -32,7 +32,7 @@ public class WebSecurityConfig {
     //better to define it like this
     private static final String[] publicRoutes = {
             "/api/auth/login","/api/auth/signup","/api/auth/refresh","/api/encryption/**",
-            "/api/ml/**","/h2-console/**"
+            "/api/ml/predict","/h2-console/**"
     };
 
     private static final Logger logger = Logger.getLogger(WebSecurityConfig.class.getName());
