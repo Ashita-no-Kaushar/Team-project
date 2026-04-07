@@ -38,6 +38,16 @@ export default function SignupFormDemo() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (formData.firstname.trim().length < 2 || formData.lastname.trim().length < 2) {
+      setError("First name and last name must be at least 2 characters long.");
+      return;
+    }
+
+    if (formData.username.length < 8 || formData.password.length < 8) {
+      setError("Username and password must be at least 8 characters long.");
+      return;
+    }
+
     if (!validateInput(formData.username) || !validateInput(formData.password)) {
       setError(
         "Username and password must contain at least one uppercase letter, one lowercase letter, one number, and only underscores (_) as special characters."
@@ -55,13 +65,12 @@ export default function SignupFormDemo() {
 
     try {
       const response = await axios.post("/api/auth/signup", {
-        username: formData.username,
+        username: formData.username.trim(),
         password: formData.password,
-        firstName: formData.firstname,
-        lastName: formData.lastname,
+        firstName: formData.firstname.trim(),
+        lastName: formData.lastname.trim(),
       });
-      console.log("Signup me hai")
-      console.log(response);
+
       if (response.status === 200) {
         toast.success("User Registered Successfully!");
         setSuccessMessage("User Registered Successfully");
@@ -69,7 +78,12 @@ export default function SignupFormDemo() {
       }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
-        setError(error.response.data?.message || "Signup failed. Please try again.");
+        const backendMessage =
+          typeof error.response.data === "string"
+            ? error.response.data
+            : error.response.data?.message;
+
+        setError(backendMessage || "Signup failed. Please try again.");
       } else {
         setError("Signup failed. Please try again.");
       }
@@ -88,22 +102,22 @@ export default function SignupFormDemo() {
             <div className="flex flex-col md:flex-row gap-4">
               <LabelInputContainer>
                 <Label htmlFor="firstname" className="text-gray-400">First name</Label>
-                <Input id="firstname" placeholder="Tyler" type="text" value={formData.firstname} onChange={handleChange} className="bg-zinc-800 border-none text-white shadow-input" />
+                <Input id="firstname" placeholder="Tyler" type="text" value={formData.firstname} onChange={handleChange} minLength={2} required className="bg-zinc-800 border-none text-white shadow-input" />
               </LabelInputContainer>
               <LabelInputContainer>
                 <Label htmlFor="lastname" className="text-gray-400">Last name</Label>
-                <Input id="lastname" placeholder="Durden" type="text" value={formData.lastname} onChange={handleChange} className="bg-zinc-800 border-none text-white shadow-input" />
+                <Input id="lastname" placeholder="Durden" type="text" value={formData.lastname} onChange={handleChange} minLength={2} required className="bg-zinc-800 border-none text-white shadow-input" />
               </LabelInputContainer>
             </div>
 
             <LabelInputContainer>
               <Label htmlFor="username" className="text-gray-400">Username</Label>
-              <Input id="username" placeholder="YourUsername123" type="text" value={formData.username} onChange={handleChange} className="bg-zinc-800 border-none text-white shadow-input" />
+              <Input id="username" placeholder="YourUsername123" type="text" value={formData.username} onChange={handleChange} minLength={8} required className="bg-zinc-800 border-none text-white shadow-input" />
             </LabelInputContainer>
 
             <LabelInputContainer>
               <Label htmlFor="password" className="text-gray-400">Password</Label>
-              <Input id="password" placeholder="••••••••" type="password" value={formData.password} onChange={handleChange} className="bg-zinc-800 border-none text-white shadow-input" />
+              <Input id="password" placeholder="••••••••" type="password" value={formData.password} onChange={handleChange} minLength={8} required className="bg-zinc-800 border-none text-white shadow-input" />
             </LabelInputContainer>
 
             <LabelInputContainer>
