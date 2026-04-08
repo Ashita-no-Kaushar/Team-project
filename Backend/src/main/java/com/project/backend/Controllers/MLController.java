@@ -2,7 +2,6 @@ package com.project.backend.Controllers;
 
 
 import com.project.backend.Entities.PredictionResult;
-import com.project.backend.Services.BenchmarkHistoryService;
 import com.project.backend.Services.MLService;
 import com.project.backend.Services.UserService;
 import com.project.backend.Services.GeneratedSampleRegistryService;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.regex.Pattern;
 import java.util.logging.Logger;
@@ -53,8 +51,6 @@ public class MLController {
 
     private final GeneratedSampleRegistryService generatedSampleRegistryService;
 
-    private final BenchmarkHistoryService benchmarkHistoryService;
-
     private static final Pattern HEX_PATTERN = Pattern.compile("^[0-9a-fA-F]+$");
     private static final Set<String> TRUSTED_ML_FALLBACK_LABELS = Set.of(
             "MD5", "SHA1", "SHA-1", "SHA256", "SHA-256", "SHA3-256", "SHA-3-256", "SHA512", "SHA-512"
@@ -65,59 +61,15 @@ public class MLController {
     @Autowired
     public MLController(MLService mlService,
                         UserService userService,
-                        GeneratedSampleRegistryService generatedSampleRegistryService,
-                        BenchmarkHistoryService benchmarkHistoryService) {
+                        GeneratedSampleRegistryService generatedSampleRegistryService) {
         this.userService = userService;
         this.mlService = mlService;
         this.generatedSampleRegistryService = generatedSampleRegistryService;
-        this.benchmarkHistoryService = benchmarkHistoryService;
     }
 
 
 
     private static final Logger log = Logger.getLogger(MLController.class.getName());
-
-    @GetMapping("/model-info")
-    public ResponseEntity<Map<String, Object>> modelInfo() {
-        try {
-            return ResponseEntity.ok(mlService.getModelInfo());
-        } catch (Exception ex) {
-            log.warning("Could not load model info: " + ex.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to load model info"));
-        }
-    }
-
-    @GetMapping("/benchmark")
-    public ResponseEntity<Map<String, Object>> benchmark(@RequestParam(name = "mode", required = false) String mode) {
-        try {
-            Map<String, Object> report = mlService.runQuickBenchmark(mode);
-            benchmarkHistoryService.recordBenchmarkRun(report);
-            return ResponseEntity.ok(report);
-        } catch (Exception ex) {
-            log.warning("Benchmark execution failed: " + ex.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Benchmark failed"));
-        }
-    }
-
-    @GetMapping("/benchmark/history")
-    public ResponseEntity<Map<String, Object>> benchmarkHistory(
-            @RequestParam(name = "mode", required = false) String mode,
-            @RequestParam(name = "limit", required = false) Integer limit) {
-        try {
-            List<Map<String, Object>> entries = benchmarkHistoryService.getHistory(mode, limit);
-
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("count", entries.size());
-            payload.put("entries", entries);
-            return ResponseEntity.ok(payload);
-        } catch (Exception ex) {
-            log.warning("Could not fetch benchmark history: " + ex.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to load benchmark history"));
-        }
-    }
 
     @PostMapping("/predict")
     public ResponseEntity<Map<String, Object>> predict(@RequestBody Map<String, String> input) {

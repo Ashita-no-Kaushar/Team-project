@@ -341,7 +341,7 @@
 
 // export default EncryptionPage;
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
   Lock, Key, Hash, Clipboard,
@@ -390,12 +390,45 @@ const algorithms = [
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
+interface EncryptionHistoryEntry {
+  algorithm: string;
+  input: string;
+  result: string;
+  createdAt: string;
+}
+
+const ENCRYPTION_HISTORY_STORAGE_KEY = 'encryptionRecentOperations';
+
+const loadEncryptionHistory = (): EncryptionHistoryEntry[] => {
+  try {
+    const raw = localStorage.getItem(ENCRYPTION_HISTORY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter((item): item is EncryptionHistoryEntry => {
+      return item && typeof item.algorithm === 'string' && typeof item.input === 'string' && typeof item.result === 'string' && typeof item.createdAt === 'string';
+    }).slice(0, 8);
+  } catch {
+    return [];
+  }
+};
+
 const EncryptionPage = () => {
   const [selectedAlgorithm, setSelectedAlgorithm] = useState(algorithms[0]);
   const [inputText, setInputText] = useState('');
   const [encryptedText, setEncryptedText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<{algorithm: string; input: string; result: string}[]>([]);
+  const [history, setHistory] = useState<EncryptionHistoryEntry[]>(loadEncryptionHistory);
+
+  useEffect(() => {
+    localStorage.setItem(ENCRYPTION_HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, 8)));
+  }, [history]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -427,9 +460,14 @@ const EncryptionPage = () => {
   
       setEncryptedText(result);
       setHistory(prev => [
-        { algorithm: selectedAlgorithm.name, input: inputText, result },
-        ...prev.slice(0, 4)
-      ]);
+        {
+          algorithm: selectedAlgorithm.name,
+          input: inputText.trim() || 'auto-generated',
+          result,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ].slice(0, 8));
 
       toast.success('Encryption successful!');
     } catch (err) {

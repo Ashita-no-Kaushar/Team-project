@@ -5,11 +5,15 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { BackgroundBeams } from "@/components/ui/background-beams";
-import { Edit, History } from "lucide-react";
+import { ArrowLeft, Edit, History } from "lucide-react";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+
+  const getAuthToken = (): string | null => {
+    return localStorage.getItem("accessToken") || localStorage.getItem("token");
+  };
 
   const [user, setUser] = useState({
     firstName: "",
@@ -27,9 +31,9 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem("accessToken"); // Retrieve token from local storage
+        const token = getAuthToken();
         if (!token) {
-          console.error("No access token found");
+          navigate('/login');
           return;
         }
 
@@ -46,7 +50,7 @@ export default function ProfilePage() {
     };
 
     fetchUserData();
-  }, [isEditing]);
+  }, [isEditing, navigate]);
 
   const handleEdit = () => {
     setPendingChanges({ ...user });
@@ -69,9 +73,9 @@ export default function ProfilePage() {
   const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getAuthToken();
       if (!token) {
-        console.error("No access token found");
+        navigate('/login');
         return;
       }
       const updateData: UpdateData = {
@@ -82,7 +86,17 @@ export default function ProfilePage() {
       const response = await axios.put("/api/users/update", updateData, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUser(response.data);
+
+      if (response.data && typeof response.data === 'object') {
+        setUser(response.data as { firstName: string; lastName: string; username: string });
+      } else {
+        setUser({
+          firstName: pendingChanges.firstName,
+          lastName: pendingChanges.lastName,
+          username: pendingChanges.username,
+        });
+      }
+
       setIsEditing(false);
       setUpdateMessage("Profile updated successfully");
     } catch (error) {
@@ -100,6 +114,10 @@ export default function ProfilePage() {
     navigate("/history");
   };
 
+  const handleBack = () => {
+    navigate(-1);
+  };
+
   // Generate user logo with the first letter of first and last name
   const getUserInitials = () => {
     return `${user.firstName?.charAt(0) || ""}${user.lastName?.charAt(0) || ""}`.toUpperCase();
@@ -111,6 +129,17 @@ export default function ProfilePage() {
 
       <div className="container mx-auto py-12 px-4">
         <div className="w-full max-w-4xl mx-auto rounded-xl border border-gray-800 bg-black/50 backdrop-blur-md p-8 relative z-10">
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex items-center space-x-2 rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-200 transition-colors duration-200 hover:border-purple-500 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </button>
+          </div>
+
           <div className="flex flex-col md:flex-row gap-8">
             <div className="flex flex-col items-center space-y-6">
               {/* User Logo with Initials */}

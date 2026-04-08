@@ -17,12 +17,13 @@ const Layout = ({ children }: LayoutProps) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
     setIsLoggedIn(!!token);
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
     setIsLoggedIn(false);
     navigate("/");
   };

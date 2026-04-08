@@ -7,11 +7,28 @@ interface HistoryListItemProps {
   onStatusChange: (id: number, correctedData: boolean) => Promise<void>;
 }
 
+const parseBackendDate = (createdAt?: string): Date | null => {
+  if (!createdAt) {
+    return null;
+  }
+
+  const hasTimezone = /(Z|[+-]\d{2}:?\d{2})$/.test(createdAt);
+  const normalized = hasTimezone ? createdAt : `${createdAt}Z`;
+  const parsed = new Date(normalized);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+};
+
 const formatTimeAgo = (createdAt?: string): string => {
-  if (!createdAt) return 'Unknown';
+  const date = parseBackendDate(createdAt);
+  if (!date) return 'Unknown';
+
   const now = new Date();
-  const date = new Date(createdAt);
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const diffInSeconds = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000));
 
   if (diffInSeconds < 60) {
     return 'just now';
@@ -36,6 +53,7 @@ const formatTimeAgo = (createdAt?: string): string => {
 export const HistoryListItem: React.FC<HistoryListItemProps> = ({ item, onStatusChange }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const createdAtDate = parseBackendDate(item.createdAt);
 
   const handleStatusToggle = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent opening details modal
@@ -73,8 +91,8 @@ export const HistoryListItem: React.FC<HistoryListItemProps> = ({ item, onStatus
           <div>
             <label className="text-sm font-medium text-gray-400">Created At</label>
             <p className="mt-2 text-white">
-              {item.createdAt
-                ? new Date(item.createdAt).toLocaleString('en-US', {
+              {createdAtDate
+                ? createdAtDate.toLocaleString('en-US', {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })

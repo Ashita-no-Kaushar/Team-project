@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { HistoryListItem } from './HistoryListItem';
 import { ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {AlgorithmIdentificationHistory} from '@/types'
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 // Define the type for history items
 
@@ -13,70 +15,84 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleAuthError = () => {
+  const handleAuthError = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('accessToken');
     navigate('/login');
-  };
+  }, [navigate]);
 
-  const getAuthToken = (): string | null => {
+  const getAuthToken = useCallback((): string | null => {
     return localStorage.getItem('accessToken') || localStorage.getItem('token');
+  }, []);
+
+  const getErrorMessage = (err: unknown, fallback: string): string => {
+    if (!axios.isAxiosError(err)) {
+      return fallback;
+    }
+
+    const payload = err.response?.data;
+    if (typeof payload === 'string' && payload.trim()) {
+      return payload;
+    }
+
+    const maybeObject = payload as { message?: string; error?: string } | undefined;
+    return maybeObject?.message || maybeObject?.error || err.message || fallback;
   };
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const token = getAuthToken();
-        if (!token) {
+  const fetchHistory = useCallback(async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        handleAuthError();
+        return;
+      }
+
+      const response = await axios.get<AlgorithmIdentificationHistory[]>(
+        `${API_BASE}/api/cryptographic-data/last20`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 5000
+        }
+      );
+
+      if (!response.data || !Array.isArray(response.data)) {
+        setHistory([]);
+        return;
+      }
+
+      const validatedHistory = response.data.filter((item): item is AlgorithmIdentificationHistory => {
+        return (
+          item !== null &&
+          typeof item === 'object' &&
+          'id' in item &&
+          typeof item.id === 'number'
+        );
+      });
+
+      setHistory(validatedHistory);
+      setError(null);
+    } catch (err) {
+      console.error('History fetch error:', err);
+
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
           handleAuthError();
           return;
         }
-
-        const response = await axios.get<AlgorithmIdentificationHistory[]>(
-          '/api/cryptographic-data/last20',
-          { 
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 5000
-          }
-        );
-        console.log(response);
-        if (!response.data || !Array.isArray(response.data)) {
-          setHistory([]);
-          return;
+        if (err.response?.status !== 404) {
+          setError(getErrorMessage(err, 'Failed to fetch history. Please try again.'));
         }
-
-        const validatedHistory = response.data.filter((item): item is AlgorithmIdentificationHistory => {
-          return (
-            item !== null &&
-            typeof item === 'object' &&
-            'id' in item &&
-            typeof item.id === 'number'
-          );
-        });
-
-        setHistory(validatedHistory);
-        setError(null);
-      } catch (err) {
-        console.error('History fetch error:', err);
-        
-        if (axios.isAxiosError(err)) {
-          if (err.response?.status === 401 || err.response?.status === 403) {
-            handleAuthError();
-            return;
-          }
-          if (err.response?.status !== 404) {
-            setError(err.response?.data?.message || 'Failed to fetch history. Please try again.');
-          }
-        } else {
-          setError('An unexpected error occurred. Please try again.');
-        }
-      } finally {
-        setLoading(false);
+      } else {
+        setError('An unexpected error occurred. Please try again.');
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthToken, handleAuthError]);
 
-    fetchHistory();
-  }, [navigate]);
+  useEffect(() => {
+    void fetchHistory();
+  }, [fetchHistory]);
 
   const handleStatusChange = async (id: number, correctedData: boolean) => {
     try {
@@ -87,10 +103,11 @@ export default function HistoryPage() {
       }
 
       await axios.put(
-        `/api/cryptographic-data/last20`,
-        { correctedData },
-        { 
+        `${API_BASE}/api/cryptographic-data/correctedData/${id}`,
+        null,
+        {
           headers: { Authorization: `Bearer ${token}` },
+          params: { correctedData },
           timeout: 5000
         }
       );
@@ -113,7 +130,7 @@ export default function HistoryPage() {
           handleAuthError();
           return;
         }
-        setError(err.response?.data?.message || 'Failed to update status. Please try again.');
+        setError(getErrorMessage(err, 'Failed to update status. Please try again.'));
       } else {
         setError('An unexpected error occurred while updating status.');
       }

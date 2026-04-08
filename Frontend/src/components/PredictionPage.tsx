@@ -292,51 +292,33 @@ const algorithmDetails = {
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
-interface PredictionMeta {
-    source?: string;
-    confidence?: number;
-    modelVersion?: string;
+interface PredictionHistoryEntry {
+    input: string;
+    result: string;
+    createdAt: string;
 }
 
-interface ModelInfo {
-    model_version?: string;
-    confidence_threshold?: number;
-    model_artifact_exists?: boolean;
-    label_map_exists?: boolean;
-    timeout_seconds?: number;
-}
+const PREDICTION_HISTORY_STORAGE_KEY = 'predictionAnalysisHistory';
 
-interface BenchmarkResult {
-    name?: string;
-    expected_algorithm?: string;
-    predicted_algorithm?: string;
-    source?: string;
-    confidence?: number;
-    match?: boolean;
-}
+const loadPredictionHistory = (): PredictionHistoryEntry[] => {
+    try {
+        const raw = localStorage.getItem(PREDICTION_HISTORY_STORAGE_KEY);
+        if (!raw) {
+            return [];
+        }
 
-interface BenchmarkReport {
-    mode?: string;
-    run_at?: string;
-    available_modes?: string[];
-    total_cases?: number;
-    passed_cases?: number;
-    pass_rate?: number;
-    avg_confidence?: number;
-    duration_ms?: number;
-    results?: BenchmarkResult[];
-}
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
 
-type BenchmarkMode = 'hash-only' | 'mixed' | 'strict';
-
-interface BenchmarkHistoryEntry {
-    mode?: string;
-    run_at?: string;
-    total_cases?: number;
-    passed_cases?: number;
-    pass_rate?: number;
-    duration_ms?: number;
-}
+        return parsed.filter((item): item is PredictionHistoryEntry => {
+            return item && typeof item.input === 'string' && typeof item.result === 'string' && typeof item.createdAt === 'string';
+        }).slice(0, 8);
+    } catch {
+        return [];
+    }
+};
 
 const normalizeKey = (raw: string): string => {
     const lower = raw.toLowerCase().trim();
@@ -385,20 +367,9 @@ const normalizeKey = (raw: string): string => {
 const PredictionPage = () => {
     const [inputHex, setInputHex] = useState('');
     const [prediction, setPrediction] = useState<keyof typeof algorithmDetails | null>(null);
-    const [predictionMeta, setPredictionMeta] = useState<PredictionMeta | null>(null);
     const [loading, setLoading] = useState(false);
-    const [history, setHistory] = useState<{ input: string, result: string }[]>([]);
+    const [history, setHistory] = useState<PredictionHistoryEntry[]>(loadPredictionHistory);
     const [showDetails, setShowDetails] = useState(true);
-    const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
-    const [modelInfoLoading, setModelInfoLoading] = useState(false);
-    const [modelInfoError, setModelInfoError] = useState<string | null>(null);
-    const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>('mixed');
-    const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
-    const [benchmarkLoading, setBenchmarkLoading] = useState(false);
-    const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
-    const [benchmarkHistory, setBenchmarkHistory] = useState<BenchmarkHistoryEntry[]>([]);
-    const [benchmarkHistoryLoading, setBenchmarkHistoryLoading] = useState(false);
-    const [benchmarkHistoryError, setBenchmarkHistoryError] = useState<string | null>(null);
 
 
     interface AlgorithmDetails {
@@ -411,99 +382,18 @@ const PredictionPage = () => {
         type: string;
     }
 
+    const getAuthToken = (): string | null => {
+        return localStorage.getItem('accessToken') || localStorage.getItem('token');
+    };
+
     const getAuthHeaders = () => {
-        const token = localStorage.getItem('accessToken');
+        const token = getAuthToken();
         return token ? { Authorization: `Bearer ${token}` } : {};
     };
 
-    const getErrorMessage = (err: any, fallback: string) => {
-        const status = err?.response?.status;
-        if (status === 401 || status === 403) {
-            return 'Login required for diagnostics and benchmark endpoints';
-        }
-        return err?.response?.data?.error || err?.message || fallback;
-    };
-
-    const formatRunTime = (value?: string) => {
-        if (!value) {
-            return 'n/a';
-        }
-        const parsed = new Date(value);
-        if (Number.isNaN(parsed.getTime())) {
-            return value;
-        }
-        return parsed.toLocaleTimeString();
-    };
-
-    const fetchModelInfo = async () => {
-        setModelInfoLoading(true);
-        try {
-            const headers = getAuthHeaders();
-            const resp = await axios.get(`${API_BASE}/api/ml/model-info`, { headers });
-            setModelInfo(resp.data ?? null);
-            setModelInfoError(null);
-        } catch (err: any) {
-            const msg = getErrorMessage(err, 'Could not load model info');
-            setModelInfo(null);
-            setModelInfoError(msg);
-        } finally {
-            setModelInfoLoading(false);
-        }
-    };
-
-    const fetchBenchmarkHistory = async (mode: BenchmarkMode | 'all' = benchmarkMode) => {
-        setBenchmarkHistoryLoading(true);
-        try {
-            const headers = getAuthHeaders();
-            const params: Record<string, string | number> = { limit: 8 };
-            if (mode !== 'all') {
-                params.mode = mode;
-            }
-
-            const resp = await axios.get(`${API_BASE}/api/ml/benchmark/history`, { headers, params });
-            const entries = Array.isArray(resp.data?.entries) ? resp.data.entries : [];
-            setBenchmarkHistory(entries);
-            setBenchmarkHistoryError(null);
-        } catch (err: any) {
-            setBenchmarkHistory([]);
-            setBenchmarkHistoryError(getErrorMessage(err, 'Could not load benchmark history'));
-        } finally {
-            setBenchmarkHistoryLoading(false);
-        }
-    };
-
-    const runQuickBenchmark = async () => {
-        setBenchmarkLoading(true);
-        setBenchmarkError(null);
-        try {
-            const headers = getAuthHeaders();
-            const resp = await axios.get(`${API_BASE}/api/ml/benchmark`, {
-                headers,
-                params: { mode: benchmarkMode }
-            });
-            setBenchmarkReport(resp.data ?? null);
-
-            const passed = Number(resp.data?.passed_cases ?? 0);
-            const total = Number(resp.data?.total_cases ?? 0);
-            toast.success(`Benchmark (${benchmarkMode}) complete: ${passed}/${total} cases matched`);
-
-            await fetchBenchmarkHistory(benchmarkMode);
-        } catch (err: any) {
-            const msg = getErrorMessage(err, 'Benchmark failed');
-            setBenchmarkError(msg);
-            toast.error(msg);
-        } finally {
-            setBenchmarkLoading(false);
-        }
-    };
-
     useEffect(() => {
-        void fetchModelInfo();
-    }, []);
-
-    useEffect(() => {
-        void fetchBenchmarkHistory(benchmarkMode);
-    }, [benchmarkMode]);
+        localStorage.setItem(PREDICTION_HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, 8)));
+    }, [history]);
 
 // const handlePredict = async () => {
 //         if (!/^[0-9a-fA-F]+$/.test(inputHex)) {
@@ -549,10 +439,8 @@ const handlePredict = async () => {
     }
 
     setLoading(true);
-    setPredictionMeta(null);
     try {
-        const token = localStorage.getItem('accessToken');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers = getAuthHeaders();
 
         const resp = await axios.post(
             `${API_BASE}/api/ml/predict`,
@@ -571,12 +459,6 @@ const handlePredict = async () => {
         const algKey = resp.data.predicted_algorithm.toLowerCase();
         const key = normalizeKey(algKey);
 
-        setPredictionMeta({
-            source: typeof resp.data?.source === 'string' ? resp.data.source : undefined,
-            confidence: typeof resp.data?.confidence === 'number' ? resp.data.confidence : undefined,
-            modelVersion: typeof resp.data?.model_version === 'string' ? resp.data.model_version : undefined,
-        });
-
         // Check if the algorithm exists in our details object
         if (!(algorithmDetails as Record<string, any>)[key]) {
             console.error('Unknown algorithm:', algKey, '→ normalized:', key);
@@ -585,7 +467,7 @@ const handlePredict = async () => {
         }
 
         setPrediction(key as keyof typeof algorithmDetails);
-        setHistory(prev => [{ input: inputHex, result: key }, ...prev.slice(0, 5)]);
+        setHistory(prev => [{ input: inputHex, result: key, createdAt: new Date().toISOString() }, ...prev].slice(0, 8));
         setShowDetails(true);
 
         if (resp.data?.warning) {
@@ -595,7 +477,6 @@ const handlePredict = async () => {
         toast.success('Analysis complete!');
     } catch (err: any) {
         console.error('Prediction error:', err);
-        setPredictionMeta(null);
         const msg = err?.response?.data?.error || err?.message || 'Prediction failed';
         toast.error(msg);
     } finally {
@@ -692,26 +573,6 @@ return (
                                         </span>
                                     </div>
 
-                                    {predictionMeta && (
-                                        <div className="mb-4 flex flex-wrap gap-2 text-xs text-gray-300">
-                                            {predictionMeta.source && (
-                                                <span className="rounded border border-gray-700 bg-gray-900 px-2 py-1">
-                                                    Source: {predictionMeta.source.replace(/_/g, ' ')}
-                                                </span>
-                                            )}
-                                            {typeof predictionMeta.confidence === 'number' && (
-                                                <span className="rounded border border-gray-700 bg-gray-900 px-2 py-1">
-                                                    Confidence: {(predictionMeta.confidence * 100).toFixed(1)}%
-                                                </span>
-                                            )}
-                                            {predictionMeta.modelVersion && (
-                                                <span className="rounded border border-gray-700 bg-gray-900 px-2 py-1">
-                                                    Model: {predictionMeta.modelVersion}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-
                                     {showDetails && (
                                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid md:grid-cols-2 gap-4">
                                             <DetailSection title="Use Cases" icon={Zap} items={algorithmDetails[prediction].useCases} />
@@ -746,7 +607,6 @@ return (
             onClick={() => { 
                 setInputHex(entry.input); 
                 setPrediction(entry.result as keyof typeof algorithmDetails);
-                setPredictionMeta(null);
             }}
         >
             <div className="flex items-center justify-between">
@@ -776,183 +636,6 @@ return (
                             </div>
                         </div>
 
-                          <div className="rounded-xl border border-gray-800 bg-black/50 backdrop-blur-md p-6">
-                              <div className="flex items-center justify-between mb-4 gap-3">
-                                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                                      <Cpu className="w-6 h-6 text-purple-400" /> Model Diagnostics
-                                  </h3>
-                                  <button
-                                      onClick={fetchModelInfo}
-                                      disabled={modelInfoLoading}
-                                      className="text-xs px-3 py-1 rounded border border-gray-700 hover:border-purple-500 disabled:opacity-50"
-                                  >
-                                      {modelInfoLoading ? 'Loading...' : 'Refresh'}
-                                  </button>
-                              </div>
-
-                              {modelInfo ? (
-                                  <div className="space-y-2 text-sm">
-                                      <div className="flex items-center justify-between text-gray-300">
-                                          <span>Version</span>
-                                          <span className="text-white">{modelInfo.model_version || 'n/a'}</span>
-                                      </div>
-                                      <div className="flex items-center justify-between text-gray-300">
-                                          <span>Threshold</span>
-                                          <span className="text-white">
-                                              {typeof modelInfo.confidence_threshold === 'number'
-                                                  ? modelInfo.confidence_threshold.toFixed(2)
-                                                  : 'n/a'}
-                                          </span>
-                                      </div>
-                                      <div className="flex items-center justify-between text-gray-300">
-                                          <span>Model Artifact</span>
-                                          <span className={modelInfo.model_artifact_exists ? 'text-green-400' : 'text-red-400'}>
-                                              {modelInfo.model_artifact_exists ? 'Found' : 'Missing'}
-                                          </span>
-                                      </div>
-                                      <div className="flex items-center justify-between text-gray-300">
-                                          <span>Label Map</span>
-                                          <span className={modelInfo.label_map_exists ? 'text-green-400' : 'text-red-400'}>
-                                              {modelInfo.label_map_exists ? 'Found' : 'Missing'}
-                                          </span>
-                                      </div>
-                                      <div className="flex items-center justify-between text-gray-300">
-                                          <span>Timeout</span>
-                                          <span className="text-white">
-                                              {typeof modelInfo.timeout_seconds === 'number' ? `${modelInfo.timeout_seconds}s` : 'n/a'}
-                                          </span>
-                                      </div>
-                                  </div>
-                              ) : (
-                                  <p className="text-sm text-gray-400">
-                                      {modelInfoLoading ? 'Loading model diagnostics...' : (modelInfoError || 'Model diagnostics unavailable.')}
-                                  </p>
-                              )}
-                          </div>
-
-                          <div className="rounded-xl border border-gray-800 bg-black/50 backdrop-blur-md p-6">
-                              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                  <Terminal className="w-6 h-6 text-purple-400" /> Quick Benchmark
-                              </h3>
-
-                              <div className="mb-4">
-                                  <label className="block text-xs uppercase tracking-wide text-gray-400 mb-2">Benchmark Mode</label>
-                                  <select
-                                      value={benchmarkMode}
-                                      onChange={e => setBenchmarkMode(e.target.value as BenchmarkMode)}
-                                      className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                  >
-                                      <option value="hash-only">hash-only (hash validation)</option>
-                                      <option value="mixed">mixed (hash + random)</option>
-                                      <option value="strict">strict (extended random checks)</option>
-                                  </select>
-                              </div>
-
-                              <button
-                                  onClick={runQuickBenchmark}
-                                  disabled={benchmarkLoading}
-                                  className="w-full mb-4 bg-gray-900 border border-gray-700 hover:border-purple-500 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-                              >
-                                  {benchmarkLoading ? 'Running benchmark...' : 'Run Benchmark'}
-                              </button>
-
-                              {benchmarkError && (
-                                  <p className="text-sm text-red-400 mb-3">{benchmarkError}</p>
-                              )}
-
-                              {benchmarkReport && (
-                                  <div className="space-y-3 text-sm">
-                                      <div className="grid grid-cols-2 gap-2">
-                                          <div className="rounded border border-gray-800 bg-gray-900 p-2 text-gray-300">
-                                              Pass Rate: {typeof benchmarkReport.pass_rate === 'number' ? `${(benchmarkReport.pass_rate * 100).toFixed(1)}%` : 'n/a'}
-                                          </div>
-                                          <div className="rounded border border-gray-800 bg-gray-900 p-2 text-gray-300">
-                                              Cases: {benchmarkReport.passed_cases ?? 0}/{benchmarkReport.total_cases ?? 0}
-                                          </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-2 gap-2">
-                                          <div className="rounded border border-gray-800 bg-gray-900 p-2 text-gray-300">
-                                              Avg Confidence: {typeof benchmarkReport.avg_confidence === 'number' ? `${(benchmarkReport.avg_confidence * 100).toFixed(1)}%` : 'n/a'}
-                                          </div>
-                                          <div className="rounded border border-gray-800 bg-gray-900 p-2 text-gray-300">
-                                              Runtime: {typeof benchmarkReport.duration_ms === 'number' ? `${benchmarkReport.duration_ms}ms` : 'n/a'}
-                                          </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-2 gap-2">
-                                          <div className="rounded border border-gray-800 bg-gray-900 p-2 text-gray-300">
-                                              Mode: {benchmarkReport.mode || benchmarkMode}
-                                          </div>
-                                          <div className="rounded border border-gray-800 bg-gray-900 p-2 text-gray-300">
-                                              Run At: {formatRunTime(benchmarkReport.run_at)}
-                                          </div>
-                                      </div>
-
-                                      <div className="space-y-2">
-                                          {(benchmarkReport.results || []).slice(0, 5).map((item, idx) => (
-                                              <div key={`${item.name || 'case'}-${idx}`} className="rounded border border-gray-800 bg-gray-900 p-2">
-                                                  <div className="flex items-center justify-between text-gray-300">
-                                                      <span>{item.name || `Case ${idx + 1}`}</span>
-                                                      <span className={item.match ? 'text-green-400' : 'text-yellow-300'}>
-                                                          {item.match ? 'match' : 'mismatch'}
-                                                      </span>
-                                                  </div>
-                                                  <div className="text-xs text-gray-400 mt-1">
-                                                      Expected: {item.expected_algorithm || 'n/a'} | Predicted: {item.predicted_algorithm || 'n/a'}
-                                                  </div>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </div>
-                              )}
-
-                                <div className="pt-3 border-t border-gray-800 mt-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs uppercase tracking-wide text-gray-400">Recent Runs</span>
-                                        <button
-                                            onClick={() => void fetchBenchmarkHistory(benchmarkMode)}
-                                            disabled={benchmarkHistoryLoading}
-                                            className="text-xs px-2 py-1 rounded border border-gray-700 hover:border-purple-500 disabled:opacity-50"
-                                        >
-                                            {benchmarkHistoryLoading ? 'Loading...' : 'Refresh'}
-                                        </button>
-                                    </div>
-
-                                    {benchmarkHistoryError && (
-                                        <p className="text-xs text-red-400 mb-2">{benchmarkHistoryError}</p>
-                                    )}
-
-                                    {benchmarkHistory.length > 0 ? (
-                                        <>
-                                            <div className="h-12 flex items-end gap-1 mb-2">
-                                                {benchmarkHistory.slice().reverse().map((entry, idx) => {
-                                                    const rate = typeof entry.pass_rate === 'number' ? Math.max(0, Math.min(1, entry.pass_rate)) : 0;
-                                                    return (
-                                                        <div
-                                                            key={`${entry.run_at || 'run'}-${idx}`}
-                                                            className="flex-1 rounded-sm bg-gradient-to-t from-blue-600 to-purple-500"
-                                                            style={{ height: `${Math.max(12, Math.round(rate * 100))}%` }}
-                                                            title={`${Math.round(rate * 100)}%`}
-                                                        />
-                                                    );
-                                                })}
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                {benchmarkHistory.slice(0, 5).map((entry, idx) => (
-                                                    <div key={`${entry.run_at || 'entry'}-${idx}`} className="text-xs text-gray-400 flex items-center justify-between">
-                                                        <span>{formatRunTime(entry.run_at)} | {entry.mode || benchmarkMode}</span>
-                                                        <span>{typeof entry.pass_rate === 'number' ? `${(entry.pass_rate * 100).toFixed(1)}%` : 'n/a'}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <p className="text-xs text-gray-500">No benchmark history for this mode yet.</p>
-                                    )}
-                                </div>
-                          </div>
                     </div>
                 </div>
             </div>
