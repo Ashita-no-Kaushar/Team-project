@@ -388,7 +388,7 @@ const algorithms = [
   { name: 'SHA3-256', type: 'Hash', keySize: 256, icon: Hash },
 ];
 
-const API_BASE = import.meta?.env?.REACT_APP_API_BASE || '';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 const EncryptionPage = () => {
   const [selectedAlgorithm, setSelectedAlgorithm] = useState(algorithms[0]);

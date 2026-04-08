@@ -290,7 +290,7 @@ const algorithmDetails = {
     }
 };
 
-const API_BASE = import.meta?.env?.REACT_APP_API_BASE || '';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 interface PredictionMeta {
     source?: string;
