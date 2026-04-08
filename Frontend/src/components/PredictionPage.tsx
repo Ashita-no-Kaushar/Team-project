@@ -3,6 +3,7 @@ import {
     Terminal, Clipboard, Search, Zap, Shield, Lock,
     AlertCircle, Hourglass, Key, Cpu, History
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BackgroundBeams } from './ui/background-beams';
 // import { TypewriterEffect } from './ui/typewriter-effect';
@@ -292,6 +293,29 @@ const algorithmDetails = {
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
+const getErrorMessage = (err: unknown, fallback: string): string => {
+    if (axios.isAxiosError(err)) {
+        const payload = err.response?.data;
+
+        if (typeof payload === 'string' && payload.trim()) {
+            return payload;
+        }
+
+        if (payload && typeof payload === 'object') {
+            const maybePayload = payload as { error?: string; message?: string };
+            return maybePayload.error || maybePayload.message || err.message || fallback;
+        }
+
+        return err.message || fallback;
+    }
+
+    if (err instanceof Error && err.message) {
+        return err.message;
+    }
+
+    return fallback;
+};
+
 interface PredictionHistoryEntry {
     input: string;
     result: string;
@@ -364,23 +388,18 @@ const normalizeKey = (raw: string): string => {
     // Fallback: return lowercase
     return lower;
 };
+
+type AlgorithmKey = keyof typeof algorithmDetails;
+
+const hasAlgorithmKey = (value: string): value is AlgorithmKey =>
+    Object.prototype.hasOwnProperty.call(algorithmDetails, value);
+
 const PredictionPage = () => {
     const [inputHex, setInputHex] = useState('');
-    const [prediction, setPrediction] = useState<keyof typeof algorithmDetails | null>(null);
+    const [prediction, setPrediction] = useState<AlgorithmKey | null>(null);
     const [loading, setLoading] = useState(false);
     const [history, setHistory] = useState<PredictionHistoryEntry[]>(loadPredictionHistory);
     const [showDetails, setShowDetails] = useState(true);
-
-
-    interface AlgorithmDetails {
-        name: string;
-        description: string;
-        useCases: string[];
-        strengths: string[];
-        weaknesses: string[];
-        keySizes: number[];
-        type: string;
-    }
 
     const getAuthToken = (): string | null => {
         return localStorage.getItem('accessToken') || localStorage.getItem('token');
@@ -460,13 +479,13 @@ const handlePredict = async () => {
         const key = normalizeKey(algKey);
 
         // Check if the algorithm exists in our details object
-        if (!(algorithmDetails as Record<string, any>)[key]) {
+        if (!hasAlgorithmKey(key)) {
             console.error('Unknown algorithm:', algKey, '→ normalized:', key);
             toast.error(`Unknown algorithm detected: ${algKey}`);
             return;
         }
 
-        setPrediction(key as keyof typeof algorithmDetails);
+        setPrediction(key);
         setHistory(prev => [{ input: inputHex, result: key, createdAt: new Date().toISOString() }, ...prev].slice(0, 8));
         setShowDetails(true);
 
@@ -475,9 +494,9 @@ const handlePredict = async () => {
         }
 
         toast.success('Analysis complete!');
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Prediction error:', err);
-        const msg = err?.response?.data?.error || err?.message || 'Prediction failed';
+        const msg = getErrorMessage(err, 'Prediction failed');
         toast.error(msg);
     } finally {
         setLoading(false);
@@ -489,7 +508,7 @@ const handlePredict = async () => {
     };
 
 
-    const DetailSection: React.FC<{ title: string; icon: React.ComponentType<any>; items: string[] }> = ({ title, icon: Icon, items }) => (
+    const DetailSection: React.FC<{ title: string; icon: LucideIcon; items: string[] }> = ({ title, icon: Icon, items }) => (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -578,7 +597,19 @@ return (
                                             <DetailSection title="Use Cases" icon={Zap} items={algorithmDetails[prediction].useCases} />
                                             <DetailSection title="Strengths" icon={Lock} items={algorithmDetails[prediction].strengths} />
                                             <DetailSection title="Weaknesses" icon={AlertCircle} items={algorithmDetails[prediction].weaknesses} />
-                                            <DetailSection title="Technical Specs" icon={Cpu} items={[`Type: ${algorithmDetails[prediction].type}`, `Key Sizes: ${'keySizes' in (algorithmDetails[prediction] as AlgorithmDetails) ? (algorithmDetails[prediction] as AlgorithmDetails).keySizes.join('bit, ') + 'bit' : 'N/A'}`]} />
+                                            <DetailSection
+                                                title="Technical Specs"
+                                                icon={Cpu}
+                                                items={[
+                                                    `Type: ${algorithmDetails[prediction].type}`,
+                                                    `Key Sizes: ${
+                                                        Array.isArray((algorithmDetails[prediction] as { keySizes?: number[] }).keySizes)
+                                                            && ((algorithmDetails[prediction] as { keySizes?: number[] }).keySizes?.length ?? 0) > 0
+                                                            ? `${(algorithmDetails[prediction] as { keySizes: number[] }).keySizes.join('bit, ')}bit`
+                                                            : 'N/A'
+                                                    }`,
+                                                ]}
+                                            />
                                         </motion.div>
                                     )}
                                 </motion.div>
@@ -597,7 +628,12 @@ return (
 
 {history.map((entry, idx) => {
     // Check if the algorithm exists in algorithmDetails
-    const algorithm = algorithmDetails[entry.result as keyof typeof algorithmDetails];
+    const resultKey = entry.result;
+    if (!hasAlgorithmKey(resultKey)) {
+        return null;
+    }
+
+    const algorithm = algorithmDetails[resultKey];
     if (!algorithm) return null; // Skip rendering if algorithm not found
 
     return (
@@ -606,7 +642,7 @@ return (
             className="p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-purple-500 cursor-pointer" 
             onClick={() => { 
                 setInputHex(entry.input); 
-                setPrediction(entry.result as keyof typeof algorithmDetails);
+                setPrediction(resultKey);
             }}
         >
             <div className="flex items-center justify-between">
@@ -628,9 +664,9 @@ return (
                                 <Key className="w-6 h-6 text-purple-400" /> Supported Algorithms
                             </h3>
                             <div className="grid grid-cols-2 gap-2">
-                                {Object.keys(algorithmDetails).map(algo => (
+                                {(Object.keys(algorithmDetails) as AlgorithmKey[]).map(algo => (
                                     <div key={algo} className="p-2 text-sm bg-gray-900 rounded border border-gray-800 hover:border-purple-500">
-                                        {(algorithmDetails as Record<string, any>)[algo].name}
+                                        {algorithmDetails[algo].name}
                                     </div>
                                 ))}
                             </div>
